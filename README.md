@@ -37,6 +37,7 @@ $$
 - 界面简洁，编辑与预览分栏显示
 - 可关联 `.md` 和 `.markdown` 文件
 - 支持中文及 UTF-8 编码
+- 软件支持 Markdown 实时预览、打开、保存、拖放文件，以及 `$...$`、`$$...$$`、`\\(...\\)`、`\\[...\\]` LaTeX 数学公式。
 
 ## 使用方法
 
@@ -46,12 +47,13 @@ $$
 4. 也可以将 Markdown 文件拖到 `mdedit.exe` 上直接打开。
 
 如需双击 `.md` 文件直接进入 mdedit，请运行 `associate-md.cmd`，或在 Windows“打开方式”中选择 `mdedit.exe`。
-
 ## 运行要求
 
 - Windows 10 或 Windows 11
 - Microsoft Edge WebView2 Runtime (多数 Windows 10/11 已自带)
 - Markdown 和公式预览目前需要连接网络
+- 预览组件通过 CDN 加载，首次使用及公式预览需要联网。
+
 
 
 
