@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mdedit</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f7f4ed;
+      --surface: #fffef9;
+      --ink: #242822;
+      --muted: #6e746c;
+      --line: #d8d8ce;
+      --accent: #166c55;
+      --accent-soft: #dcece5;
+      --code: #eef0e9;
+      --danger: #a33d32;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+    }
+
+    button, textarea { font: inherit; }
+
+    button {
+      border: 1px solid transparent;
+      background: transparent;
+      color: inherit;
+    }
+
+    button:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: 48px minmax(0, 1fr) 28px;
+      height: 100%;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 10px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 254, 249, .94);
+    }
+
+    .brand {
+      margin: 0 14px 0 2px;
+      font: 700 17px/1 Georgia, "Times New Roman", serif;
+      color: var(--accent);
+    }
+
+    .icon-button {
+      display: inline-grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .icon-button:hover { background: var(--accent-soft); }
+    .icon-button svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .separator { width: 1px; height: 22px; margin: 0 5px; background: var(--line); }
+
+    .file-name {
+      min-width: 0;
+      margin-left: 9px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 13px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .spacer { flex: 1; }
+
+    .view-switch {
+      display: none;
+      padding: 2px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--paper);
+    }
+
+    .view-switch button {
+      padding: 5px 9px;
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .view-switch button.active { background: var(--surface); color: var(--ink); }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      min-height: 0;
+    }
+
+    .editor-pane, .preview-pane { min-width: 0; min-height: 0; }
+
+    #editor {
+      display: block;
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: 0;
+      padding: 30px clamp(20px, 4vw, 56px) 80px;
+      background: var(--surface);
+      color: var(--ink);
+      font: 15px/1.7 Consolas, "Cascadia Mono", monospace;
+      tab-size: 2;
+    }
+
+    .preview-pane {
+      overflow: auto;
+      border-left: 1px solid var(--line);
+      background-color: var(--paper);
+      background-image: radial-gradient(#d5d4ca 0.65px, transparent 0.65px);
+      background-size: 16px 16px;
+    }
+
+    #preview {
+      width: min(760px, calc(100% - 48px));
+      min-height: 100%;
+      margin: 0 auto;
+      padding: 35px 0 90px;
+      font: 16px/1.75 Georgia, "Noto Serif SC", "Songti SC", serif;
+      overflow-wrap: anywhere;
+    }
+
+    #preview h1, #preview h2, #preview h3 {
+      margin: 1.35em 0 .55em;
+      letter-spacing: 0;
+      line-height: 1.25;
+    }
+
+    #preview h1 { margin-top: 0; font-size: 2em; }
+    #preview h2 { padding-bottom: .25em; border-bottom: 1px solid var(--line); font-size: 1.5em; }
+    #preview h3 { font-size: 1.2em; }
+    #preview a { color: var(--accent); text-underline-offset: 3px; }
+    #preview blockquote { margin-left: 0; padding-left: 1em; border-left: 3px solid var(--accent); color: var(--muted); }
+    #preview code { padding: .12em .34em; border-radius: 3px; background: var(--code); font: .88em/1.5 Consolas, monospace; }
+    #preview pre { overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 5px; background: var(--code); }
+    #preview pre code { padding: 0; background: transparent; }
+    #preview img { max-width: 100%; height: auto; }
+    #preview table { width: 100%; border-collapse: collapse; }
+    #preview th, #preview td { padding: 7px 10px; border: 1px solid var(--line); text-align: left; }
+    #preview hr { border: 0; border-top: 1px solid var(--line); }
+    #preview .katex-display { overflow-x: auto; overflow-y: hidden; padding: .4em 0; }
+
+    .statusbar {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 0 12px;
+      border-top: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    #message.error { color: var(--danger); }
+    #fileInput { display: none; }
+
+    @media (max-width: 720px) {
+      .toolbar { padding: 0 6px; }
+      .brand { margin-right: 5px; }
+      .file-name, .separator { display: none; }
+      .view-switch { display: flex; }
+      .workspace { display: block; }
+      .editor-pane, .preview-pane { height: 100%; }
+      .preview-pane { display: none; border-left: 0; }
+      .workspace.preview-mode .editor-pane { display: none; }
+      .workspace.preview-mode .preview-pane { display: block; }
+      #editor { padding: 22px 18px 70px; }
+      #preview { width: calc(100% - 36px); padding-top: 24px; }
+    }
+
+    @media (max-width: 480px) {
+      .brand { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="toolbar">
+      <h1 class="brand">mdedit</h1>
+      <button class="icon-button" id="newButton" title="新建 (Ctrl+N)" aria-label="新建"><i data-lucide="file-plus-2"></i></button>
+      <button class="icon-button" id="openButton" title="打开 (Ctrl+O)" aria-label="打开"><i data-lucide="folder-open"></i></button>
+      <button class="icon-button" id="saveButton" title="保存 (Ctrl+S)" aria-label="保存"><i data-lucide="save"></i></button>
+      <button class="icon-button" id="saveAsButton" title="另存为 (Ctrl+Shift+S)" aria-label="另存为"><i data-lucide="save-all"></i></button>
+      <span class="separator"></span>
+      <button class="icon-button" id="boldButton" title="粗体 (Ctrl+B)" aria-label="粗体"><i data-lucide="bold"></i></button>
+      <button class="icon-button" id="italicButton" title="斜体 (Ctrl+I)" aria-label="斜体"><i data-lucide="italic"></i></button>
+      <button class="icon-button" id="formulaButton" title="行内公式" aria-label="插入行内公式"><i data-lucide="sigma"></i></button>
+      <span class="file-name" id="fileName">未命名.md</span>
+      <span class="spacer"></span>
+      <nav class="view-switch" aria-label="视图">
+        <button class="active" data-view="edit">编辑</button>
+        <button data-view="preview">预览</button>
+      </nav>
+    </header>
+
+    <section class="workspace" id="workspace">
+      <div class="editor-pane">
+        <textarea id="editor" aria-label="Markdown 编辑器" spellcheck="false"></textarea>
+      </div>
+      <div class="preview-pane">
+        <article id="preview"></article>
+      </div>
+    </section>
+
+    <footer class="statusbar">
+      <span id="message">就绪</span>
+      <span class="spacer"></span>
+      <span id="position">行 1，列 1</span>
+      <span id="count">0 字</span>
+    </footer>
+  </main>
+
+  <input type="file" id="fileInput" accept=".md,.markdown,.txt,text/markdown,text/plain">
+  <script src="https://cdn.jsdelivr.net/npm/marked@16.2.1/lib/marked.umd.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.544.0/dist/umd/lucide.min.js"></script>
+  <script>
+    const editor = document.querySelector('#editor');
+    const preview = document.querySelector('#preview');
+    const workspace = document.querySelector('#workspace');
+    const fileName = document.querySelector('#fileName');
+    const message = document.querySelector('#message');
+    const position = document.querySelector('#position');
+    const count = document.querySelector('#count');
+    const fileInput = document.querySelector('#fileInput');
+    let fileHandle = null;
+    let dirty = false;
+    let renderTimer = 0;
+
+    function nativeApi() {
+      return window.pywebview?.api || null;
+    }
+
+    const starter = `# 欢迎使用 mdedit
+
+在左侧输入 **Markdown**，右侧会实时预览。
+
+行内公式：$E = mc^2$
+
+块级公式：
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2}\,dx = \\sqrt{\\pi}
+$$
+`;
+
+    function setMessage(text, isError = false) {
+      message.textContent = text;
+      message.classList.toggle('error', isError);
+    }
+
+    function sanitize(html) {
+      const documentFragment = new DOMParser().parseFromString(html, 'text/html');
+      documentFragment.querySelectorAll('script, iframe, object, embed, style, link, meta').forEach(node => node.remove());
+      documentFragment.querySelectorAll('*').forEach(node => {
+        [...node.attributes].forEach(attribute => {
+          const name = attribute.name.toLowerCase();
+          const value = attribute.value.trim().toLowerCase();
+          if (name.startsWith('on') || name === 'srcdoc' || ((name === 'href' || name === 'src') && value.startsWith('javascript:'))) {
+            node.removeAttribute(attribute.name);
+          }
+        });
+      });
+      return documentFragment.body.innerHTML;
+    }
+
+    function render() {
+      window.clearTimeout(renderTimer);
+      if (!window.marked) {
+        preview.textContent = editor.value;
+        setMessage('预览组件加载失败，请检查网络', true);
+        return;
+      }
+      preview.innerHTML = sanitize(marked.parse(editor.value, { gfm: true }));
+      if (window.renderMathInElement) {
+        try {
+          renderMathInElement(preview, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\[', right: '\\]', display: true },
+              { left: '$', right: '$', display: false },
+              { left: '\\(', right: '\\)', display: false }
+            ],
+            throwOnError: false
+          });
+        } catch (error) {
+          setMessage(`公式错误：${error.message}`, true);
+        }
+      }
+    }
+
+    function updateStatus() {
+      const before = editor.value.slice(0, editor.selectionStart);
+      const lines = before.split('\n');
+      position.textContent = `行 ${lines.length}，列 ${lines.at(-1).length + 1}`;
+      count.textContent = `${editor.value.replace(/\s/g, '').length} 字`;
+    }
+
+    function markDirty() {
+      dirty = true;
+      document.title = `* ${fileName.textContent} - mdedit`;
+      localStorage.setItem('mdedit-recovery', editor.value);
+      updateStatus();
+      window.clearTimeout(renderTimer);
+      renderTimer = window.setTimeout(render, 120);
+    }
+
+    function setDocument(text, name = '未命名.md', handle = null) {
+      editor.value = text;
+      fileHandle = handle;
+      fileName.textContent = name;
+      dirty = false;
+      document.title = `${name} - mdedit`;
+      localStorage.setItem('mdedit-recovery', text);
+      updateStatus();
+      render();
+      editor.focus();
+    }
+
+    async function openFile() {
+      if (nativeApi()) {
+        const result = await nativeApi().open_file();
+        if (result?.error) return setMessage(result.error, true);
+        if (result) {
+          setDocument(result.content, result.name);
+          setMessage('已打开');
+        }
+        return;
+      }
+      if ('showOpenFilePicker' in window) {
+        try {
+          [fileHandle] = await window.showOpenFilePicker({
+            types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown'], 'text/plain': ['.txt'] } }],
+            multiple: false
+          });
+          const file = await fileHandle.getFile();
+          setDocument(await file.text(), file.name, fileHandle);
+          setMessage('已打开');
+        } catch (error) {
+          if (error.name !== 'AbortError') setMessage(error.message, true);
+        }
+      } else {
+        fileInput.click();
+      }
+    }
+
+    async function saveFile(saveAs = false) {
+      try {
+        if (nativeApi()) {
+          const result = await nativeApi().save_file(editor.value, saveAs, fileName.textContent);
+          if (result?.error) return setMessage(result.error, true);
+          if (!result) return;
+          fileName.textContent = result.name;
+          dirty = false;
+          document.title = `${result.name} - mdedit`;
+          setMessage('已保存');
+          return;
+        }
+        if (saveAs || !fileHandle) {
+          if ('showSaveFilePicker' in window) {
+            fileHandle = await window.showSaveFilePicker({
+              suggestedName: fileName.textContent,
+              types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md'] } }]
+            });
+            fileName.textContent = fileHandle.name;
+          } else {
+            const blobUrl = URL.createObjectURL(new Blob([editor.value], { type: 'text/markdown;charset=utf-8' }));
+            const link = Object.assign(document.createElement('a'), { href: blobUrl, download: fileName.textContent });
+            link.click();
+            URL.revokeObjectURL(blobUrl);
+            dirty = false;
+            document.title = `${fileName.textContent} - mdedit`;
+            setMessage('已下载');
+            return;
+          }
+        }
+        const writable = await fileHandle.createWritable();
+        await writable.write(editor.value);
+        await writable.close();
+        dirty = false;
+        document.title = `${fileName.textContent} - mdedit`;
+        setMessage('已保存');
+      } catch (error) {
+        if (error.name !== 'AbortError') setMessage(error.message, true);
+      }
+    }
+
+    function wrapSelection(before, after = before, placeholder = '') {
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      const selected = editor.value.slice(start, end) || placeholder;
+      editor.setRangeText(`${before}${selected}${after}`, start, end, 'select');
+      editor.selectionStart = start + before.length;
+      editor.selectionEnd = start + before.length + selected.length;
+      editor.focus();
+      markDirty();
+    }
+
+    document.querySelector('#newButton').addEventListener('click', () => {
+      if (!dirty || confirm('放弃尚未保存的更改？')) {
+        nativeApi()?.new_document();
+        setDocument('', '未命名.md');
+      }
+    });
+    document.querySelector('#openButton').addEventListener('click', openFile);
+    document.querySelector('#saveButton').addEventListener('click', () => saveFile());
+    document.querySelector('#saveAsButton').addEventListener('click', () => saveFile(true));
+    document.querySelector('#boldButton').addEventListener('click', () => wrapSelection('**', '**', '粗体'));
+    document.querySelector('#italicButton').addEventListener('click', () => wrapSelection('*', '*', '斜体'));
+    document.querySelector('#formulaButton').addEventListener('click', () => wrapSelection('$', '$', 'x^2'));
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (file) setDocument(await file.text(), file.name);
+      fileInput.value = '';
+    });
+
+    editor.addEventListener('input', markDirty);
+    editor.addEventListener('click', updateStatus);
+    editor.addEventListener('keyup', updateStatus);
+    editor.addEventListener('keydown', event => {
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        editor.setRangeText('  ', editor.selectionStart, editor.selectionEnd, 'end');
+        markDirty();
+      }
+    });
+
+    document.addEventListener('keydown', event => {
+      if (!event.ctrlKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 's') { event.preventDefault(); saveFile(event.shiftKey); }
+      if (key === 'o') { event.preventDefault(); openFile(); }
+      if (key === 'n') { event.preventDefault(); document.querySelector('#newButton').click(); }
+      if (key === 'b') { event.preventDefault(); wrapSelection('**', '**', '粗体'); }
+      if (key === 'i') { event.preventDefault(); wrapSelection('*', '*', '斜体'); }
+    });
+
+    document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+      document.querySelectorAll('[data-view]').forEach(item => item.classList.toggle('active', item === button));
+      workspace.classList.toggle('preview-mode', button.dataset.view === 'preview');
+      if (button.dataset.view === 'preview') render();
+    }));
+
+    document.addEventListener('dragover', event => event.preventDefault());
+    document.addEventListener('drop', async event => {
+      event.preventDefault();
+      const file = event.dataTransfer.files[0];
+      if (file && /\.(md|markdown|txt)$/i.test(file.name)) setDocument(await file.text(), file.name);
+    });
+
+    window.addEventListener('beforeunload', event => {
+      if (dirty) event.preventDefault();
+    });
+
+    window.addEventListener('load', () => {
+      lucide.createIcons();
+      setDocument(localStorage.getItem('mdedit-recovery') || starter);
+    });
+
+    window.addEventListener('pywebviewready', async () => {
+      const result = await nativeApi().get_initial_document();
+      if (result?.error) return setMessage(result.error, true);
+      if (result) setDocument(result.content, result.name);
+    });
+  </script>
+</body>
+</html>
